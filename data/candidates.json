@@ -1,0 +1,84 @@
+{
+  "candidates": [
+    {
+      "id": "cand-001",
+      "name": "Ava Testerman",
+      "title": "Senior Backend Engineer",
+      "years_experience": 8,
+      "skills": ["Python", "FastAPI", "PostgreSQL", "Docker", "AWS", "REST APIs"],
+      "summary": "Fictional profile. Backend engineer focused on Python services, API design, and cloud deployment. Has led small teams and owns end-to-end delivery of microservices."
+    },
+    {
+      "id": "cand-002",
+      "name": "Rex Samplewood",
+      "title": "Full Stack Developer",
+      "years_experience": 5,
+      "skills": ["JavaScript", "React", "Node.js", "Python", "MongoDB", "REST APIs"],
+      "summary": "Fictional profile. Full stack developer comfortable across React frontends and Node/Python backends. Ships product features quickly in startup settings."
+    },
+    {
+      "id": "cand-003",
+      "name": "Mona Placeholder",
+      "title": "Machine Learning Engineer",
+      "years_experience": 6,
+      "skills": ["Python", "PyTorch", "TensorFlow", "MLOps", "AWS", "Data Pipelines"],
+      "summary": "Fictional profile. ML engineer with experience training and deploying models to production and building reproducible data pipelines."
+    },
+    {
+      "id": "cand-004",
+      "name": "Dexter Fauxman",
+      "title": "DevOps Engineer",
+      "years_experience": 7,
+      "skills": ["Kubernetes", "Terraform", "AWS", "Docker", "CI/CD", "Python"],
+      "summary": "Fictional profile. DevOps engineer specializing in infrastructure as code, container orchestration, and building reliable CI/CD pipelines."
+    },
+    {
+      "id": "cand-005",
+      "name": "Iris Mocksley",
+      "title": "Junior Backend Developer",
+      "years_experience": 2,
+      "skills": ["Python", "Flask", "SQL", "Git", "REST APIs"],
+      "summary": "Fictional profile. Early-career backend developer with solid Python fundamentals and growing experience in API development and relational databases."
+    },
+    {
+      "id": "cand-006",
+      "name": "Gil Dummington",
+      "title": "Data Engineer",
+      "years_experience": 9,
+      "skills": ["Python", "Spark", "Airflow", "SQL", "AWS", "Data Pipelines"],
+      "summary": "Fictional profile. Senior data engineer who designs large-scale batch and streaming pipelines and mentors junior engineers on data quality."
+    },
+    {
+      "id": "cand-007",
+      "name": "Petra Stubbington",
+      "title": "Cloud Solutions Architect",
+      "years_experience": 11,
+      "skills": ["AWS", "Azure", "Terraform", "Kubernetes", "System Design", "Python"],
+      "summary": "Fictional profile. Cloud architect with deep experience designing multi-region systems and guiding platform migrations for mid-size organizations."
+    },
+    {
+      "id": "cand-008",
+      "name": "Otto Fictionelli",
+      "title": "Frontend Engineer",
+      "years_experience": 4,
+      "skills": ["JavaScript", "TypeScript", "React", "CSS", "HTML", "Accessibility"],
+      "summary": "Fictional profile. Frontend engineer focused on accessible, performant single-page applications and design-system component work."
+    },
+    {
+      "id": "cand-009",
+      "name": "Nadia Exemplar",
+      "title": "Backend Engineer",
+      "years_experience": 6,
+      "skills": ["Python", "Django", "PostgreSQL", "Redis", "Docker", "REST APIs"],
+      "summary": "Fictional profile. Backend engineer with strong Django and relational database experience, comfortable optimizing query-heavy services."
+    },
+    {
+      "id": "cand-010",
+      "name": "Cyrus Notrealson",
+      "title": "Platform Engineer",
+      "years_experience": 10,
+      "skills": ["Go", "Kubernetes", "AWS", "Python", "Observability", "CI/CD"],
+      "summary": "Fictional profile. Platform engineer who builds internal developer platforms, tooling, and observability stacks for engineering teams."
+    }
+  ]
+}

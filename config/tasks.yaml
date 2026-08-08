@@ -1,0 +1,91 @@
+# CrewAI task definitions for the Recruitment Assistant (MVP).
+# Sequential process with explicit context chaining:
+#   source -> evaluate -> recommend  (SAD section 2).
+# Machine-ingested output is plain JSON without code fences
+# (adapter Quality Gates). Runtime placeholders ({job_requirements},
+# {criteria}, {top_n}, {candidates}) are interpolated by src/crew.py.
+
+source_task:
+  agent: researcher
+  description: >
+    Review the following job requirements and select the most relevant candidates
+    from the provided candidate pool.
+
+    Job requirements:
+    {job_requirements}
+
+    Criteria (may be empty; if empty, infer sensible job-relevant criteria from the
+    requirements):
+    {criteria}
+
+    Candidate pool (JSON, the ONLY candidates you may consider):
+    {candidates}
+
+    Select candidates whose title, skills, and experience are relevant to the
+    requirements. Do not invent candidates. If no candidate is a plausible match,
+    return an empty list.
+  expected_output: >
+    A JSON array (no code fences) of selected candidate objects, each preserving the
+    original fields: id, name, title, years_experience, skills, summary. Include only
+    candidates present in the provided pool.
+
+evaluate_task:
+  agent: evaluator
+  context:
+    - source_task
+  description: >
+    Using the candidate list produced by the source task and the criteria below,
+    score every candidate against each criterion.
+
+    Criteria (if empty, use the same job-relevant criteria inferred during sourcing):
+    {criteria}
+
+    For each candidate, assign an overall numeric score from 0 to 100. For each
+    criterion, mark the result as "met", "partially_met", or "missed" and give a short
+    evidence note that cites the candidate profile. Be consistent and reproducible;
+    base every judgment on evidence in the profile only.
+  expected_output: >
+    A JSON array (no code fences) where each element is:
+    {
+      "candidate": { the original candidate object },
+      "score": number (0-100),
+      "criteria_breakdown": [
+        { "criterion": string, "result": "met" | "partially_met" | "missed", "evidence": string }
+      ]
+    }
+
+recommend_task:
+  agent: recommender
+  context:
+    - evaluate_task
+  description: >
+    Using the scored candidates from the evaluate task, produce a ranked shortlist of
+    at most {top_n} candidates.
+
+    Ranking rules (stable, documented tie-break):
+    1. Order by overall score descending.
+    2. On effectively equal scores, rank the candidate with more fully-met ("met")
+       criteria first.
+    3. If still tied, preserve the incoming order.
+
+    For each shortlisted candidate, write a concise, evidence-based rationale in
+    professional, unbiased language, and carry forward its score and criteria
+    breakdown. If two adjacent candidates are within a small score margin, note the
+    near-tie in the rationale so the recruiter looks closer. If there are no plausible
+    matches, return an empty shortlist.
+  expected_output: >
+    A single JSON object (no code fences) shaped exactly as:
+    {
+      "shortlist": [
+        {
+          "candidate": { the original candidate object },
+          "rank": integer starting at 1,
+          "score": number (0-100),
+          "rationale": string,
+          "criteria_breakdown": [
+            { "criterion": string, "result": "met" | "partially_met" | "missed", "evidence": string }
+          ]
+        }
+      ],
+      "notes": string (optional; e.g. "no strong matches" when the shortlist is empty)
+    }
