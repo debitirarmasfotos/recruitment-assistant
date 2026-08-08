@@ -25,6 +25,16 @@ from typing import Any, Optional
 
 import yaml
 
+# Support running both as "src.crew" (package) and "crew" (cwd=src).
+try:
+    from src.logging_config import configure_logging
+except ImportError:  # pragma: no cover - fallback for cwd=src execution
+    from logging_config import configure_logging
+
+_LOGGER = configure_logging().getChild("crew")
+
+_TRUTHY = {"1", "true", "yes", "on"}
+
 # Project layout anchors (absolute, resolved from this file).
 _SRC_DIR = Path(__file__).resolve().parent
 _PROJECT_ROOT = _SRC_DIR.parent
@@ -63,6 +73,36 @@ def _api_key_missing() -> bool:
 
 def _resolve_model() -> str:
     return (os.getenv("OPENAI_MODEL") or "gpt-4o").strip()
+
+
+def _tracing_enabled() -> bool:
+    """CrewAI tracing is opt-in via CREWAI_TRACING_ENABLED (default off).
+
+    Tracing sends run data to app.crewai.com and requires `crewai login`, so it
+    is disabled by default to keep offline/local runs and tests free of network
+    or auth attempts.
+    """
+    return (os.getenv("CREWAI_TRACING_ENABLED") or "").strip().lower() in _TRUTHY
+
+
+def _verbose_enabled() -> bool:
+    """Crew verbose console output, configurable via CREWAI_VERBOSE (default on)."""
+    return (os.getenv("CREWAI_VERBOSE") or "true").strip().lower() in _TRUTHY
+
+
+def _log_task_completed(task_output: Any) -> None:
+    """Log completion of each crew stage without logging sensitive content.
+
+    Logs only the agent role (from config, not PII) and the output length, so
+    candidate PII and full requirements never reach the logs (security.md L2).
+    """
+    try:
+        agent = getattr(task_output, "agent", None) or "unknown"
+        raw = getattr(task_output, "raw", None)
+        out_len = len(raw) if isinstance(raw, str) else 0
+        _LOGGER.info("crew stage completed: agent=%s output_len=%d", agent, out_len)
+    except Exception:  # noqa: BLE001 - never let logging break a run
+        _LOGGER.debug("task callback logging failed", exc_info=True)
 
 
 def load_candidates() -> list[dict[str, Any]]:
@@ -244,14 +284,22 @@ def build_crew(inputs: dict[str, Any]):
             max_retries=2,
         )
 
-    crew = Crew(
+    crew_kwargs: dict[str, Any] = dict(
         agents=list(agents.values()),
         tasks=[tasks[name] for name in ordered_task_names],
         process=Process.sequential,
         memory=False,
         max_rpm=30,
-        verbose=True,
+        verbose=_verbose_enabled(),
+        task_callback=_log_task_completed,
     )
+    # Only enable tracing (network + auth to app.crewai.com) when explicitly
+    # opted in, so offline/local runs and tests never attempt a network call.
+    if _tracing_enabled():
+        crew_kwargs["tracing"] = True
+        _LOGGER.info("crewai tracing enabled (CREWAI_TRACING_ENABLED)")
+
+    crew = Crew(**crew_kwargs)
     return crew
 
 
@@ -316,15 +364,25 @@ def run_recommendation(
 
     crew = build_crew(inputs)
 
+    _LOGGER.info(
+        "crew execution start: run_id=%s model=%s candidates=%d top_n=%d",
+        run_id,
+        _resolve_model(),
+        len(candidates),
+        top_n,
+    )
     try:
         result = crew.kickoff(inputs=inputs)
     except RecommendationError:
         raise
     except Exception as exc:  # noqa: BLE001 - surface any runtime failure as a clear error
+        _LOGGER.error("crew execution failed: run_id=%s error=%s", run_id, type(exc).__name__)
         raise RecommendationError(
             "runtime_error",
             f"The recommendation run failed: {exc}",
         ) from exc
+
+    _LOGGER.info("crew execution finished: run_id=%s", run_id)
 
     raw_output = getattr(result, "raw", None) or str(result)
     parsed = _extract_json(raw_output)

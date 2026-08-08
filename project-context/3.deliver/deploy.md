@@ -92,6 +92,9 @@ values locally; `.env` is gitignored.
 | `APP_NAME` | Human-readable app name. | Optional. |
 | `APP_ENV` | `development` or `production`. `development` enables Uvicorn auto-reload in `main.py`. | Optional (default `development`). |
 | `CREWAI_TELEMETRY_OPT_OUT` | Set `true` to opt out of CrewAI telemetry. | Optional (recommended `true`). |
+| `CREWAI_TRACING_ENABLED` | Set `true` to send run traces to `app.crewai.com` (requires `crewai login`). Off by default so offline/local runs and tests make no network/auth calls. | Optional (default `false`). |
+| `CREWAI_VERBOSE` | Crew console verbosity. | Optional (default `true`). |
+| `LOG_LEVEL` | App log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`). | Optional (default `INFO`). |
 
 Not stored in `.env.example` but read by `main.py` for host/port control (safe,
 non-secret; documented here for completeness): `APP_HOST` (default `127.0.0.1`)
@@ -192,21 +195,75 @@ and versioned with the code. `.env` is unaffected by rollback.
 
 ## Monitoring and Observability
 
-Placeholder for the monitoring step (a following commit expands this).
+Observability for the MVP is structured application logging plus optional CrewAI
+tracing. Both are runtime-aligned to `AAMAD_TARGET_RUNTIME=crewai` and honor the
+security.md L2 redaction policy (no secrets, no full PII / requirements).
 
-Baseline present today: the app logs `run_id`, error `code`/`message`, and
-shortlist size via Python `logging` (SAD section 5); `CREWAI_TELEMETRY_OPT_OUT`
-is set; `GET /health` provides a liveness probe used by the compose health check.
+### What to monitor
 
-To be added in the monitoring step:
+- **Liveness / health**: `GET /health` -> `200 {"status": "ok"}`. Used by the
+  Docker compose health check; poll it as the up/down signal.
+- **Request outcomes**: each `POST /api/recommend` logs a `received` line and a
+  terminal `ok` / `failed` / `error` line carrying the request `run_id`, HTTP
+  `status`, candidate count (on success), and `duration_ms`. Watch the ratio of
+  `failed`/`error` to `ok` as the error rate.
+- **Error rate and error codes**: `failed` lines include the machine-readable
+  `code` (for example `missing_api_key`, `runtime_error`, `output_unparseable`).
+  A rising `runtime_error` / `output_unparseable` rate indicates an LLM or parse
+  problem; a spike in `missing_api_key` indicates a misconfigured key.
+- **Crew run duration**: `crew execution start` / `crew execution finished`
+  (with `run_id`) in `crew.py`, plus `crew stage completed` per agent stage
+  (sourcing, evaluating, recommending). Compare against the request `duration_ms`
+  to locate slow stages.
+- **LLM cost signal**: there is no billing meter in the MVP, so use proxy
+  signals: the count of successful `crew execution finished` lines (each is one
+  paid three-agent run) and `output_len` per stage. Set a provider-side spend
+  cap (see Access Control) as the hard cost guardrail.
 
-- Structured request/run logging and log persistence under
-  `project-context/2.build/logs`.
-- CrewAI Prompt Trace and per-task lifecycle events (task start/stop, retries)
-  per the crewai adapter Logging rule, captured on the first keyed run.
-- Log-redaction guardrails (security.md L2): never log the API key; redact or
-  omit full `job_requirements` and candidate fields if the system is ever pointed
-  at real data.
+### Log levels and storage
+
+- Level is set by `LOG_LEVEL` (default `INFO`; use `DEBUG` for verbose triage).
+- Format: `%(asctime)s - %(name)s - %(levelname)s - %(message)s`.
+- Two sinks, configured once in `src/logging_config.py`:
+  - **stdout** via a `StreamHandler` (captured by `docker compose logs -f app`
+    or the local terminal).
+  - **`logs/app.log`** via a `FileHandler`. The `logs/` directory is created at
+    runtime if missing and is gitignored (`logs/` in `.gitignore`), so runtime
+    logs are never committed.
+- Levels in use: `INFO` for startup, request lifecycle, and crew stages;
+  `WARNING` for handled `RecommendationError` outcomes; `ERROR` /
+  `logger.exception` for unexpected failures (server-side only, never returned
+  to the client).
+
+### Redaction policy (security.md L2)
+
+- The API key is never logged; startup logs only `api_key_present=<bool>`.
+- `job_requirements` is logged only as a length-bounded summary
+  (`summarize_text`: character length plus a short truncated preview), never the
+  full text.
+- Candidate records are never logged; crew stage logs carry only the agent role
+  (from config, not PII) and an output character length, not content.
+- Exception handlers log the exception type / message server-side and must not
+  emit secrets; if the system is ever pointed at real data, keep this policy and
+  drop the requirements preview.
+
+### CrewAI tracing (optional, opt-in)
+
+Tracing is off by default so offline/local runs and tests make no network or
+auth calls. `crew.py` reads `CREWAI_TRACING_ENABLED` and passes `tracing=True`
+to the `Crew` only when that flag is truthy. To enable and view traces:
+
+1. Install the tooling extras: `pip install "crewai[tools]"`.
+2. Authenticate once: `crewai login` (opens the CrewAI auth flow).
+3. Enable tracing: set `CREWAI_TRACING_ENABLED=true` in `.env` (equivalent to
+   `tracing=True` on the `Crew`).
+4. Run a keyed recommendation, then view traces at `app.crewai.com` -> Traces:
+   agent decisions, the task timeline (sourcing -> evaluating -> recommending),
+   tool usage, LLM calls, and errors.
+
+Tracing is a network- and cost-relevant control: enable it only with operator
+authorization and a provider-side spend cap in place, and keep it off for
+offline smoke tests.
 
 ## Troubleshooting
 
@@ -290,3 +347,23 @@ To be added in the monitoring step:
   the Dockerfile and compose stack are provided but NOT built here; a docker build
   and live deploy are deferred pending operator authorization. No application code
   was modified and no paid LLM call was made.
+- 2026-08-08, devops-eng, document-deploy, resolved AAMAD_TARGET_RUNTIME=crewai.
+  Added observability to the MVP without changing the API contract or crew logic.
+  Implemented structured logging in src/logging_config.py (level from LOG_LEVEL,
+  format '%(asctime)s - %(name)s - %(levelname)s - %(message)s', StreamHandler +
+  FileHandler to logs/app.log, logs/ created at runtime and gitignored). src/app.py
+  now logs startup (app/version/env/runtime/model and api_key_present as a boolean
+  only), and per-request received/ok/failed/error lines with a request run_id, a
+  length-bounded job_requirements summary (summarize_text), top_n, status,
+  candidate count, and duration_ms. src/crew.py logs crew execution start/finish
+  (run_id) and per-stage completion via a task_callback (agent role + output length
+  only, no PII), and reads CREWAI_TRACING_ENABLED (default off) to pass tracing=True
+  to the Crew only when opted in, plus CREWAI_VERBOSE for verbose control. Added
+  CREWAI_TRACING_ENABLED and LOG_LEVEL to .env.example and logs/ to .gitignore.
+  Expanded this Monitoring and Observability section (what to monitor, log levels
+  and storage, L2 redaction policy, and CrewAI tracing setup/viewing at
+  app.crewai.com). Verified offline in the project .venv (no paid LLM calls):
+  src/app.py and src/crew.py import cleanly, TestClient GET /health returns 200,
+  a log line is emitted to logs/app.log and stdout, and pytest tests/test_smoke.py
+  passes 8/8. Tracing network calls were NOT enabled and the paid LLM path was NOT
+  run.

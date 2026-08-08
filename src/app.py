@@ -15,7 +15,9 @@ surfaced as a clear error envelope from POST /api/recommend, not a crash.
 
 from __future__ import annotations
 
-import logging
+import os
+import time
+import uuid
 from pathlib import Path
 from typing import Any, Optional
 
@@ -30,18 +32,30 @@ load_dotenv()
 
 # Support running both as "src.app" (package) and "app" (cwd=src).
 try:
-    from src.crew import RecommendationError, run_recommendation
+    from src.crew import RecommendationError, _api_key_missing, run_recommendation
+    from src.logging_config import configure_logging, summarize_text
 except ImportError:  # pragma: no cover - fallback for cwd=src execution
-    from crew import RecommendationError, run_recommendation
+    from crew import RecommendationError, _api_key_missing, run_recommendation
+    from logging_config import configure_logging, summarize_text
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("recruitment_assistant")
+logger = configure_logging()
 
 _SRC_DIR = Path(__file__).resolve().parent
 _STATIC_DIR = _SRC_DIR / "static"
 _INDEX_FILE = _STATIC_DIR / "index.html"
 
 app = FastAPI(title="Recruitment Assistant", version="0.1.0")
+
+# Startup log: never log the API key itself, only whether one is present.
+logger.info(
+    "startup: app=%s version=%s env=%s runtime=%s model=%s api_key_present=%s",
+    app.title,
+    app.version,
+    (os.getenv("APP_ENV") or "development").strip(),
+    (os.getenv("AAMAD_TARGET_RUNTIME") or "crewai").strip(),
+    (os.getenv("OPENAI_MODEL") or "gpt-4o").strip(),
+    not _api_key_missing(),
+)
 
 
 class RecommendRequest(BaseModel):
@@ -88,6 +102,17 @@ def recommend(request: RecommendRequest) -> JSONResponse:
     On failure, returns the {"error": {"code", "message"}} envelope with an
     appropriate HTTP status and NO partial shortlist (PRD section 5).
     """
+    # Request-scoped correlation id for all log lines of this request.
+    run_id = f"req-{uuid.uuid4().hex[:12]}"
+    start = time.perf_counter()
+    # Log a length-bounded summary only: never the full requirements or PII (L2).
+    logger.info(
+        "recommend received: run_id=%s top_n=%s job_requirements=%s",
+        run_id,
+        request.top_n,
+        summarize_text(request.job_requirements),
+    )
+
     try:
         result = run_recommendation(
             job_requirements=request.job_requirements,
@@ -95,18 +120,33 @@ def recommend(request: RecommendRequest) -> JSONResponse:
             top_n=request.top_n,
         )
     except RecommendationError as exc:
+        duration_ms = round((time.perf_counter() - start) * 1000, 1)
         status_code = _STATUS_BY_CODE.get(exc.code, 500)
-        logger.warning("recommend failed: code=%s message=%s", exc.code, exc.message)
+        logger.warning(
+            "recommend failed: run_id=%s status=%d code=%s duration_ms=%s",
+            run_id,
+            status_code,
+            exc.code,
+            duration_ms,
+        )
         return _error_response(exc.code, exc.message, status_code)
     except Exception as exc:  # noqa: BLE001 - never leak a stack trace to the client
-        logger.exception("unexpected error in recommend")
+        duration_ms = round((time.perf_counter() - start) * 1000, 1)
+        logger.exception("recommend error: run_id=%s duration_ms=%s", run_id, duration_ms)
         return _error_response(
             "internal_error",
             f"An unexpected error occurred: {exc}",
             500,
         )
 
-    logger.info("recommend ok: run_id=%s size=%d", result.get("run_id"), len(result.get("shortlist", [])))
+    duration_ms = round((time.perf_counter() - start) * 1000, 1)
+    logger.info(
+        "recommend ok: run_id=%s crew_run_id=%s status=200 candidates=%d duration_ms=%s",
+        run_id,
+        result.get("run_id"),
+        len(result.get("shortlist", [])),
+        duration_ms,
+    )
     return JSONResponse(status_code=200, content=result)
 
 
