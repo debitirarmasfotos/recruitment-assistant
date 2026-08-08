@@ -1,0 +1,15 @@
+# Recruitment Assistant MVP backend dependencies.
+# Runtime target: crewai (AAMAD_TARGET_RUNTIME=crewai).
+
+crewai==0.86.0
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-dotenv==1.0.1
+pydantic==2.10.4
+PyYAML==6.0.3
+
+# crewai 0.86 imports pkg_resources; pin setuptools below 80 (pkg_resources
+# was removed in setuptools 81+). Required on Python 3.12 where venvs ship
+# a newer setuptools by default.
+setuptools<80
+
