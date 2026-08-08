@@ -13,3 +13,6 @@ PyYAML==6.0.3
 # a newer setuptools by default.
 setuptools<80
 
+# Dev / test only (offline smoke tests; no LLM calls).
+pytest==9.1.1
+
