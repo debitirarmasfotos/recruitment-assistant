@@ -1,0 +1,17 @@
+# Secrets - never commit
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# AAMAD local config (keep the example template, ignore local state)
+aamad.config.yml
+
+# OS / editor
+.DS_Store
+Thumbs.db
