@@ -148,7 +148,7 @@ gracefully rather than crashing.
 
 ## Audit
 
-- 2026-08-08, frontend.eng, develop-fe, resolved runtime crewai. Replaced
+- 2026-08-08, frontend.eng, develop-fe, resolved AAMAD_TARGET_RUNTIME=crewai. Replaced
   `src/static/index.html` and added `src/static/app.js` and `src/static/styles.css`:
   a minimal no-framework, no-build recruiter form (job_requirements, criteria, top_n
   default 5) posting to `POST /api/recommend` same-origin, and a scannable ranked

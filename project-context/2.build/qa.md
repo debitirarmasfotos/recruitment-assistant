@@ -209,7 +209,7 @@ security assessment (`@security.eng`) before Deliver, since
 
 ## Audit
 
-- 2026-08-08, qa.eng, qa, resolved runtime crewai. Ran Tier-0 offline smoke via
+- 2026-08-08, qa.eng, qa, resolved AAMAD_TARGET_RUNTIME=crewai. Ran Tier-0 offline smoke via
   FastAPI TestClient in the project `.venv` (Python 3.12.10) with a placeholder
   `OPENAI_API_KEY` (no paid LLM calls). Authored and ran `tests/test_smoke.py`
   (8 passed, 0 failed) covering health, static serving, the 503 missing_api_key

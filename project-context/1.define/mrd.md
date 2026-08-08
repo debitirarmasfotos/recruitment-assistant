@@ -117,4 +117,4 @@ Key insights per dimension are captured in sections 1-5 above. Because this is a
 
 ## Audit
 
-- 2026-08-08, product-mgr, create-mrd, resolved runtime crewai
+- 2026-08-08, product-mgr, create-mrd, resolved AAMAD_TARGET_RUNTIME=crewai

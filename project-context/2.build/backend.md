@@ -193,7 +193,7 @@ calls. They are expected to be exercised by QA and the operator once a key is se
 
 ## Audit
 
-- 2026-08-08, backend.eng, develop-be, resolved runtime crewai. Implemented
+- 2026-08-08, backend.eng, develop-be, resolved AAMAD_TARGET_RUNTIME=crewai. Implemented
   config/agents.yaml, config/tasks.yaml, src/crew.py, src/app.py, data/candidates.json,
   src/static/index.html, requirements.txt. Resolved LLM model default `gpt-4o`
   (`OPENAI_MODEL`), Evaluator/Recommender temperature 0.1, Researcher temperature 0.2,

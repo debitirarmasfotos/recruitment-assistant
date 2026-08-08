@@ -243,4 +243,4 @@ recruitment-assistant/
 
 ## Audit
 
-- 2026-08-08, system.arch, create-sad, resolved runtime crewai
+- 2026-08-08, system.arch, create-sad, resolved AAMAD_TARGET_RUNTIME=crewai

@@ -177,7 +177,7 @@ place that adapts to both error shapes the backend can emit.
 
 ## Audit
 
-- 2026-08-08, integration.eng, integrate-api, resolved runtime crewai. Verified
+- 2026-08-08, integration.eng, integrate-api, resolved AAMAD_TARGET_RUNTIME=crewai. Verified
   same-origin single-service wiring via FastAPI TestClient with the placeholder
   key (no paid LLM calls): GET / plus /static/app.js and /static/styles.css 200;
   GET /health 200 {"status":"ok"}; POST /api/recommend surfaces the 503
