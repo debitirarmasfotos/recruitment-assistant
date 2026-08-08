@@ -53,14 +53,21 @@ cp .env.example .env
 # Edit .env and set OPENAI_API_KEY to your real key
 ```
 
-**Run the application:**
+**Run the application (local):**
 
 ```bash
-uvicorn src.app:app --reload
-# then open http://localhost:8000 in your browser
+python main.py
+# then open http://127.0.0.1:8000 in your browser
 ```
 
-The single FastAPI service serves both the web UI (at `/`) and the API. Enter job requirements and criteria, submit, and the Application Crew returns a ranked shortlist with per-candidate rationale and a per-criterion breakdown.
+**Run with Docker:**
+
+```bash
+docker build -t recruitment-assistant .
+docker run --env-file .env -p 127.0.0.1:8000:8000 recruitment-assistant
+```
+
+The single FastAPI service serves both the web UI (at `/`) and the API. Enter job requirements and criteria, submit, and the Application Crew returns a ranked shortlist with per-candidate rationale and a per-criterion breakdown. Full operational detail is in [deploy.md](project-context/3.deliver/deploy.md); an end-user manual is in [user-guide.md](project-context/3.deliver/user-guide.md).
 
 **API endpoints:**
 
@@ -94,10 +101,14 @@ recruitment-assistant/
 │   └── test_smoke.py     # Offline smoke tests (no LLM calls)
 ├── project-context/
 │   ├── 1.define/         # mrd.md, prd.md, sad.md
-│   ├── 2.build/          # backend.md, frontend.md, integration.md, qa.md
-│   └── 3.deliver/        # Deliver-phase artifacts (Module 07)
+│   ├── 2.build/          # backend.md, frontend.md, integration.md, qa.md, security.md
+│   └── 3.deliver/        # deploy.md, execution-results.md, user-guide.md
+├── main.py               # Local entry point (uvicorn)
+├── Dockerfile            # Container image
+├── docker-compose.yml    # Single-service compose stack
 ├── requirements.txt
 ├── .env.example          # Environment template (copy to .env)
+├── LESSONS.md            # Lessons learned across the project
 ├── AGENTS.md             # Bridge file for IDE agent discoverability
 ├── CHECKLIST.md          # Define, Build, Deliver workflow checklist
 └── README.md
@@ -106,12 +117,18 @@ recruitment-assistant/
 Key artifacts:
 
 - `project-context/1.define/` - `mrd.md`, `prd.md` (Agentic-Architect-reviewed), `sad.md`
-- `project-context/2.build/` - `backend.md`, `frontend.md`, `integration.md`, `qa.md`
+- `project-context/2.build/` - `backend.md`, `frontend.md`, `integration.md`, `qa.md`, `security.md`
+- `project-context/3.deliver/` - `deploy.md`, `execution-results.md`, `user-guide.md`
+- `LESSONS.md` - reflection across Define, Build, and Deliver
 
 ## Development Status
 
 - **Define phase: complete.** MRD and PRD done; PRD reviewed by the Agentic Architect (Experience and Business hats).
 - **Build phase (Module 06): complete.** SAD, CrewAI Application Crew and FastAPI backend, minimal web UI, integration, and a QA smoke pass (`aamad validate --phase build` passes). Offline smoke tests pass; the live ranked-shortlist path requires an `OPENAI_API_KEY` and is documented as scoped future validation in `qa.md`.
-- **Deliver phase (Module 07): next.** Deploy configuration, runbook, and user guide.
+- **Deliver phase (Module 07): complete.** Security assessment (SHIP for the synthetic-data MVP), deploy runbook and Docker/local configs, structured logging with CrewAI tracing, an end-to-end local run captured in `execution-results.md`, a user guide, and `LESSONS.md`. `aamad validate --phase deliver` passes. The live LLM shortlist path remains gated on an `OPENAI_API_KEY`.
 
 **Runtime:** `AAMAD_TARGET_RUNTIME=crewai`.
+
+## Lessons Learned
+
+See [LESSONS.md](LESSONS.md) for the full reflection. In short: defining the MRD/PRD first kept the build on-target; single-responsibility personas handing off through canonical artifacts made the multi-agent build coherent and auditable; and the Agentic Architect value was in the cross-cutting decisions (architecture, contracts, scope, risk) and quality gates, not in producing the code itself.
