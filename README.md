@@ -34,13 +34,42 @@ Note: the **Application Crew** (Researcher, Evaluator, Recommender) is the shipp
 
 **Prerequisites:**
 
-- Python 3.9+
+- Python 3.9+ (developed and tested on 3.12)
 - git
-- An LLM API key provided via an environment variable (never committed; see `.env.example` in the Build phase for the required variable names)
+- An OpenAI API key (or other LLM provider key), provided via an environment variable and never committed
 
-**Install and initialization:** the runtime is CrewAI (`AAMAD_TARGET_RUNTIME=crewai`). Build-phase project setup, dependency installation, and run instructions are produced during Module 06 (Build). Until then there are no application run commands to invoke.
+**Setup:**
 
-**Usage:** to be completed in the Build phase. Run commands and the end-to-end workflow will be documented in `project-context/2.build/` (setup and backend artifacts) once implementation begins.
+```bash
+# 1. Create and activate a virtual environment
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+
+# 2. Install dependencies
+pip install -r requirements.txt
+
+# 3. Configure environment (AAMAD_TARGET_RUNTIME=crewai)
+cp .env.example .env
+# Edit .env and set OPENAI_API_KEY to your real key
+```
+
+**Run the application:**
+
+```bash
+uvicorn src.app:app --reload
+# then open http://localhost:8000 in your browser
+```
+
+The single FastAPI service serves both the web UI (at `/`) and the API. Enter job requirements and criteria, submit, and the Application Crew returns a ranked shortlist with per-candidate rationale and a per-criterion breakdown.
+
+**API endpoints:**
+
+- `GET /health` - liveness check, returns `{"status":"ok"}`.
+- `POST /api/recommend` - body `{ job_requirements, criteria?, top_n? }`; returns `{ shortlist: [ { candidate, rank, score, rationale, criteria_breakdown } ], run_id, status }`. Fails closed with `{ error: { code, message } }` (no partial shortlist).
+
+**Tests:** `pytest` runs an offline smoke suite (`tests/test_smoke.py`) that checks health, static serving, and input validation without making any LLM calls.
+
+Note: without a valid `OPENAI_API_KEY`, the app still boots and `/health` works; `/api/recommend` returns a clear `missing_api_key` error rather than crashing. A live ranked shortlist requires your key.
 
 ## Project Structure
 
@@ -49,11 +78,26 @@ This project uses the AAMAD framework layout:
 ```
 recruitment-assistant/
 ├── .cursor/
+│   ├── agents/           # Development Crew persona definitions
+│   ├── rules/            # AAMAD core + runtime adapter rules
 │   └── templates/        # PRD, SAD, MRD templates
+├── config/
+│   ├── agents.yaml       # CrewAI Researcher, Evaluator, Recommender agents
+│   └── tasks.yaml        # Three sequential tasks (context-chained)
+├── src/
+│   ├── app.py            # FastAPI app: /api/recommend, /health, static mount
+│   ├── crew.py           # Builds and runs the CrewAI Application Crew
+│   └── static/           # Minimal web UI (index.html, app.js, styles.css)
+├── data/
+│   └── candidates.json   # Synthetic candidate dataset (no real PII)
+├── tests/
+│   └── test_smoke.py     # Offline smoke tests (no LLM calls)
 ├── project-context/
-│   ├── 1.define/         # Define-phase artifacts (mrd.md, prd.md)
-│   ├── 2.build/          # Build-phase artifacts (Module 06)
+│   ├── 1.define/         # mrd.md, prd.md, sad.md
+│   ├── 2.build/          # backend.md, frontend.md, integration.md, qa.md
 │   └── 3.deliver/        # Deliver-phase artifacts (Module 07)
+├── requirements.txt
+├── .env.example          # Environment template (copy to .env)
 ├── AGENTS.md             # Bridge file for IDE agent discoverability
 ├── CHECKLIST.md          # Define, Build, Deliver workflow checklist
 └── README.md
@@ -61,11 +105,13 @@ recruitment-assistant/
 
 Key artifacts:
 
-- `project-context/1.define/mrd.md` - Market Research Document
-- `project-context/1.define/prd.md` - Product Requirements Document (reviewed by the Agentic Architect)
+- `project-context/1.define/` - `mrd.md`, `prd.md` (Agentic-Architect-reviewed), `sad.md`
+- `project-context/2.build/` - `backend.md`, `frontend.md`, `integration.md`, `qa.md`
 
 ## Development Status
 
-- **Define phase: complete.** The MRD and PRD are done, and the PRD has been reviewed by the Agentic Architect (Experience and Business hats) and adjusted in place.
-- **Build phase (Module 06): next.** Architecture (SAD), setup, the CrewAI backend crew, frontend, integration, and QA.
-- **Deliver phase (Module 07): after Build.** Deploy configuration, runbook, and user guide.
+- **Define phase: complete.** MRD and PRD done; PRD reviewed by the Agentic Architect (Experience and Business hats).
+- **Build phase (Module 06): complete.** SAD, CrewAI Application Crew and FastAPI backend, minimal web UI, integration, and a QA smoke pass (`aamad validate --phase build` passes). Offline smoke tests pass; the live ranked-shortlist path requires an `OPENAI_API_KEY` and is documented as scoped future validation in `qa.md`.
+- **Deliver phase (Module 07): next.** Deploy configuration, runbook, and user guide.
+
+**Runtime:** `AAMAD_TARGET_RUNTIME=crewai`.
