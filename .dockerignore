@@ -1,0 +1,33 @@
+# Keep the image small and free of secrets, local state, and docs.
+
+# Secrets and local env (never copy into the image).
+.env
+.env.*
+!.env.example
+
+# Python virtual environments and caches.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Version control.
+.git/
+.gitignore
+
+# Tests and their artifacts (not needed at run time).
+tests/
+
+# Project documentation and AAMAD context (not needed in the runtime image).
+project-context/
+.cursor/
+README.md
+CHECKLIST.md
+AGENTS.md
+aamad.config.yml
+aamad.config.example.yml
+
+# OS / editor cruft.
+.DS_Store
+Thumbs.db
