@@ -252,12 +252,40 @@
     renderShortlist(data);
   }
 
+  /** Turn a FastAPI 422 validation body ({ detail: ... }) into a readable string. */
+  function formatValidationDetail(detail) {
+    if (typeof detail === "string") {
+      return detail;
+    }
+    if (Array.isArray(detail)) {
+      return detail
+        .map(function (item) {
+          var field =
+            item && Array.isArray(item.loc)
+              ? item.loc[item.loc.length - 1]
+              : "";
+          var msg = (item && item.msg) || "invalid value";
+          return field ? field + ": " + msg : msg;
+        })
+        .join("; ");
+    }
+    return "";
+  }
+
   function handleError(payload, httpStatus) {
     var message = "The request failed. Please try again.";
     var code = "";
     if (payload && payload.error && payload.error.message) {
+      // Custom backend envelope: { error: { code, message } }.
       message = payload.error.message;
       code = payload.error.code || "";
+    } else if (payload && payload.detail) {
+      // FastAPI validation envelope: { detail: [...] } (HTTP 422).
+      var detailMsg = formatValidationDetail(payload.detail);
+      if (detailMsg) {
+        message = detailMsg;
+        code = httpStatus === 422 ? "invalid_input" : code;
+      }
     } else if (httpStatus) {
       message = "The server returned an error (HTTP " + httpStatus + ").";
     }
